@@ -38,7 +38,7 @@ def go(filename: str) -> int:
 # Part 2 is going to take some thinking - brute force is completely out the cards here.
 # Feels a lot like it's going to be a recursive depth first search function. Let's try that.
 def go_2(filename: str):
-    def array2num(array: list) -> int:
+    def array2num(array: list | np.typing.NDArray) -> int:
         num = 0
         for ex, n in enumerate(array[::-1]):
             num += int(10**ex) * n
@@ -57,12 +57,15 @@ def go_2(filename: str):
         #   the index of the last battery
         #   the largest jolts we've seen so far
 
+        # OK so this works, but it's miserably slow. Need to come up with a way to sample
+        # much less of the tree
+
         # when we hit the bottom, return this bank
         level = len(battery)
         if level == 12:  # zero indexed!
             return battery
-        if level == 1:
-            print(".", end="")
+        if level == 4:
+            print(".", end="", flush=True)
 
         # at each level, we only continue if the number we are looking at right now beats the
         # best that we've ever seen
@@ -74,11 +77,23 @@ def go_2(filename: str):
                 best_battery = get_max_jolts(bank, trial, i + 1, best_battery)
         return best_battery
 
+    # Hold on. In all cases, biggest number in the first 88 numbers is the best 1st digit.
+    # SO a much smarter move is to find the biggest number in this range, and set it as the 1st digit, and then
+    # take the first instance of it as out index for it
+    def get_max_jolts_not_dumb(bank: np.typing.NDArray[np.int64]):
+        battery = np.zeros(12, dtype=np.int64)
+        last_d = -1
+        for digit in range(12):
+            i = np.argmax(bank[last_d + 1 : len(bank) - 11 + digit]) + last_d + 1
+            battery[digit] = bank[i]
+            last_d = i
+        return battery
+
     with open(filename, "r") as f:
         jolt_sum = 0
         for l in f.readlines():
-            bank = [int(n) for n in l.strip()]
-            battery = get_max_jolts(bank)
+            bank = np.array([int(n) for n in l.strip()])
+            battery = get_max_jolts_not_dumb(bank)
             jolt_sum += array2num(battery)
             print(
                 f"In {bank}, you can make the largest joltage possible, {array2num(battery)}"
